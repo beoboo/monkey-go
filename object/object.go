@@ -8,9 +8,11 @@ import (
 )
 
 type ObjectType string
+type BuiltinFunction func(args ...Object) Object
 
 const (
 	BOOLEAN_OBJ      = "BOOLEAN"
+	BUILTIN_OBJ      = "BUILTIN"
 	ERROR_OBJ        = "ERROR"
 	FUNCTION_OBJ     = "FUNCTION"
 	INTEGER_OBJ      = "INTEGER"
@@ -113,4 +115,15 @@ func (f *Function) Inspect() string {
 	out.WriteString("\n}")
 
 	return out.String()
+}
+
+type Builtin struct {
+	Fn BuiltinFunction
+}
+
+func (f *Builtin) Type() ObjectType {
+	return BUILTIN_OBJ
+}
+func (f *Builtin) Inspect() string {
+	return "builtin function"
 }
