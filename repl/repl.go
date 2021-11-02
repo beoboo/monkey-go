@@ -2,12 +2,15 @@ package repl
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
+	"monkey/compiler"
 	"monkey/evaluator"
 	"monkey/lexer"
 	"monkey/object"
 	"monkey/parser"
+	"monkey/vm"
 )
 
 const PROMPT = ">> "
@@ -16,6 +19,15 @@ func Start(in io.Reader, out io.Writer) {
 	scanner := bufio.NewScanner(in)
 	env := object.NewEnvironment()
 	macroEnv := object.NewEnvironment()
+
+	enableVM := flag.Bool("enable-vm", false, "Enable virtual machine")
+	flag.Parse()
+
+	if *enableVM {
+		fmt.Printf("Using virtual machine\n")
+	} else {
+		fmt.Printf("Using interpreter\n")
+	}
 
 	for {
 		fmt.Printf(PROMPT)
@@ -38,13 +50,33 @@ func Start(in io.Reader, out io.Writer) {
 			continue
 		}
 
-		evaluator.DefineMacros(program, macroEnv)
-		expanded := evaluator.ExpandMacros(program, macroEnv)
+		if *enableVM {
+			comp := compiler.New()
+			err := comp.Compile(program)
+			if err != nil {
+				fmt.Fprintf(out, "Woops! Compilation failed:\n %s\n", err)
+				continue
+			}
 
-		evaluated := evaluator.Eval(expanded, env)
-		if evaluated != nil {
-			io.WriteString(out, evaluated.Inspect())
+			machine := vm.New(comp.ByteCode())
+			err = machine.Run()
+			if err != nil {
+				fmt.Fprintf(out, "Woops! Executing bytecode failed:\n %s\n", err)
+				continue
+			}
+
+			stackTop := machine.StackTop()
+			io.WriteString(out, stackTop.Inspect())
 			io.WriteString(out, "\n")
+		} else {
+			evaluator.DefineMacros(program, macroEnv)
+			expanded := evaluator.ExpandMacros(program, macroEnv)
+
+			evaluated := evaluator.Eval(expanded, env)
+			if evaluated != nil {
+				io.WriteString(out, evaluated.Inspect())
+				io.WriteString(out, "\n")
+			}
 		}
 	}
 }
